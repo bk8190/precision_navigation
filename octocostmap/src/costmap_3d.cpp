@@ -40,7 +40,7 @@
 
 namespace octocostmap {
   Costmap3D::Costmap3D(const std::string &name, tf::TransformListener &tfl):
-    name_(name), map_frame_("map"), tfl_(tfl), nh_(), priv_nh_("~/" + name_), octree_(0.5) {
+    name_(name), map_frame_("odom"), tfl_(tfl), nh_(), priv_nh_("~/" + name_), octree_(0.5) {
       octomap_sub_ = nh_.subscribe<octomap_ros::OctomapBinary>("octomap", 1, boost::bind(&Costmap3D::octomapCallback, this, _1));
       collision_volume_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ> >("collison_volume_cloud", 1);
     }

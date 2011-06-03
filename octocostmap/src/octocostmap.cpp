@@ -53,9 +53,9 @@ namespace octocostmap {
     }
     laser_sub_.subscribe(nh_, "scan", 100);
     pc_sub_.subscribe(nh_, "cloud", 100);
-    laser_tf_filter_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tfl_, map_frame_, 100);
+    laser_tf_filter_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tfl_, map_frame_, 1);
     laser_tf_filter_->registerCallback(boost::bind(&OctoCostmap::laserCallback, this, _1));
-    pc_tf_filter_ = new tf::MessageFilter<pcl::PointCloud<pcl::PointXYZ> >(pc_sub_, tfl_, map_frame_, 100);
+    pc_tf_filter_ = new tf::MessageFilter<pcl::PointCloud<pcl::PointXYZ> >(pc_sub_, tfl_, map_frame_, 1);
     pc_tf_filter_->registerCallback(boost::bind(&OctoCostmap::pointCloudCallback, this, _1));
 
     map_pub_ = nh_.advertise<octomap_ros::OctomapBinary>("octomap", 1, true);
