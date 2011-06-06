@@ -44,6 +44,9 @@ namespace octocostmap {
   OctoCostmap::OctoCostmap() : tfl_(), priv_nh_("~"), map_frame_("map"), map_resolution_(0.05) {
     priv_nh_.param("map_frame", map_frame_, map_frame_);
     priv_nh_.param("map_resolution", map_resolution_, map_resolution_);
+    priv_nh_.param("scan_buffer", scan_buffer_, 100);
+    priv_nh_.param("pc_buffer", pc_buffer_, 1);
+    priv_nh_.param("pc_buffer2", pc_buffer2_, 1);
     double publish_frequency = 0.0;
     priv_nh_.param("publish_frequency", publish_frequency, 10.0);
     if (publish_frequency > 0.0) {
@@ -51,12 +54,15 @@ namespace octocostmap {
     } else {
       publish_period_ = ros::Duration(0.0);
     }
-    laser_sub_.subscribe(nh_, "scan", 1);
-    pc_sub_.subscribe(nh_, "cloud", 1);
-    laser_tf_filter_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tfl_, map_frame_, 1);
+    laser_sub_.subscribe(nh_, "scan", scan_buffer_);
+    pc_sub_.subscribe(nh_, "cloud", pc_buffer_);
+    pc_sub2_.subscribe(nh_, "cloud2", pc_buffer2_);
+    laser_tf_filter_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tfl_, map_frame_, scan_buffer_);
     laser_tf_filter_->registerCallback(boost::bind(&OctoCostmap::laserCallback, this, _1));
-    pc_tf_filter_ = new tf::MessageFilter<pcl::PointCloud<pcl::PointXYZ> >(pc_sub_, tfl_, map_frame_, 1);
+    pc_tf_filter_ = new tf::MessageFilter<pcl::PointCloud<pcl::PointXYZ> >(pc_sub_, tfl_, map_frame_, pc_buffer_);
     pc_tf_filter_->registerCallback(boost::bind(&OctoCostmap::pointCloudCallback, this, _1));
+    pc_tf_filter2_ = new tf::MessageFilter<pcl::PointCloud<pcl::PointXYZ> >(pc_sub2_, tfl_, map_frame_, pc_buffer2_);
+    pc_tf_filter2_->registerCallback(boost::bind(&OctoCostmap::pointCloudCallback, this, _1));
 
     map_pub_ = nh_.advertise<octomap_ros::OctomapBinary>("octomap", 1, true);
     viz_point_cloud_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ> >("octomap_visualization_cloud", 1);
@@ -100,7 +106,7 @@ namespace octocostmap {
       ROS_ERROR("Error finding origin of the cloud in the map frame. Error was %s", ex.what());
     } */
     insertPointCloudXYZ(cloud);
-    ROS_DEBUG("Point cloud callback took %f milliseconds for %d points", (ros::WallTime::now() - start).toSec() * 1000.0, cloud->points.size());
+    ROS_DEBUG("Point cloud callback took %f milliseconds for %d points", (ros::WallTime::now() - start).toSec() * 1000.0, (int)cloud->points.size());
     publishOctomapMsg();
     publishVisualizationPointCloud();
   }
