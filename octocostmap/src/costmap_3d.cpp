@@ -98,8 +98,8 @@ namespace octocostmap {
           }
         }
         //Generate the front and back sides
-        for (double dy = 0.0; dy <= 1.0; dy += y_resolution) {
-          for (double dz = 0.0; dz < 1.0; dz += z_resolution) {
+        for (double dy = 0.0; dy < 1.0; dy += y_resolution) {
+          for (double dz = 0.0; dz <= 1.0; dz += z_resolution) {
                 temp = origin_pt + dy*y_vec + dz*z_vec;
                 collision_pts.push_back(temp);
                 temp = origin_pt + dy*y_vec + dz*z_vec + x_vec;
@@ -107,7 +107,7 @@ namespace octocostmap {
           }
         }
         //Generate the top and bottom sides
-        for (double dx = 0.0; dx <= 1.0; dx += x_resolution) {
+        for (double dx = 0.0; dx < 1.0; dx += x_resolution) {
           for (double dy = 0.0; dy < 1.0; dy += y_resolution) {
                 temp = origin_pt + dx*x_vec + dy*y_vec;
                 collision_pts.push_back(temp);
@@ -149,7 +149,7 @@ namespace octocostmap {
       }
     }
     octree_lock_.unlock_shared();
-    ROS_DEBUG("Checked %d out of %d points before breaking out", num_points_checked, collision_volume.size());
+    ROS_DEBUG("Checked %d out of %d points before breaking out", num_points_checked, (uint32_t)collision_volume.size());
     return retval;
   }
 };
