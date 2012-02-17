@@ -71,9 +71,21 @@ IdealStateGenerator::IdealStateGenerator():
   //Initialze private class variables
   seg_number_ = 0;
   seg_length_done_ = 0.0;
-
-  tf_listener_.waitForTransform("odom", "map", ros::Time::now(), ros::Duration(10));
-  tf_listener_.waitForTransform("odom", "base_link", ros::Time::now(), ros::Duration(10));
+	
+	// Wait to get transforms.
+	bool found = false;
+	while( !found ){
+		try{
+			found = true;
+			tf_listener_.waitForTransform("odom", "map"      , ros::Time::now(), ros::Duration(10));
+			tf_listener_.waitForTransform("odom", "base_link", ros::Time::now(), ros::Duration(10));
+		}
+		catch(tf::TransformException& ex){
+			ROS_WARN("Failed to get transforms");
+			found = false;
+		}
+	}
+  
   desiredState_ = makeHaltState(false);
 
   as_.registerGoalCallback(boost::bind(&IdealStateGenerator::newPathCallback, this));
@@ -119,14 +131,14 @@ void IdealStateGenerator::computeStateLoop(const ros::TimerEvent& event) {
   if (as_.isActive()) {
     ROS_DEBUG("We have an active goal. Compute state");
     if (computeState(new_desired_state)) {
-      ROS_DEBUG("State computation failed. Command current position");
+      ROS_INFO("State computation failed. Command current position");
       new_desired_state = makeHaltState(false);
     }
     if(!checkCollisions(false, new_desired_state)) {
       ROS_DEBUG("No collision detected. Passing on current desired state");
       desiredState_ = new_desired_state;
     } else {
-      ROS_DEBUG("Collision detected. Commanding current position");
+      ROS_INFO("Collision detected. Commanding current position");
       desiredState_ = makeHaltState(false); 
     }
   } else {
@@ -143,18 +155,18 @@ void IdealStateGenerator::computeStateLoop(const ros::TimerEvent& event) {
 }
 
 bool IdealStateGenerator::checkCollisions(bool checkEntireVolume, const precision_navigation_msgs::DesiredState& des_state) {
-  geometry_msgs::PoseStamped origin, origin_des_frame;
+  /*geometry_msgs::PoseStamped origin, origin_des_frame;
   origin_des_frame.header = des_state.header;
   /*origin_des_frame.header.frame_id = std::string("base_link");
     origin_des_frame.point.x = 0.0;
     origin_des_frame.point.y = 0.0;
-    origin_des_frame.point.z = 0.0; */
+    origin_des_frame.point.z = 0.0; *//*
   origin_des_frame.pose = des_state.des_pose;
   try {
     /*tf_listener_.transformPose("base_link", origin_des_frame, origin);
       origin.pose.position.x += -0.711;
       origin.pose.position.y += -0.3048;
-      origin.pose.position.z += 0.0; */
+      origin.pose.position.z += 0.0; *//*
     double width = 0.6096;
     double length = 1.422;
     double height = 2.00;
@@ -175,7 +187,8 @@ bool IdealStateGenerator::checkCollisions(bool checkEntireVolume, const precisio
   } catch (tf::TransformException ex) {
     ROS_ERROR("%s", ex.what());
     return true;
-  }
+  }*/
+  return false; // MEGA HAX
 }
 
 bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& new_des_state)
@@ -204,7 +217,8 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
     double psiDes = tf::getYaw(desiredState_.des_pose.orientation);
     //Need to only advance by the projection of what we did onto the desired heading	
     // formula is v * dt * cos(psiDes - psiPSO)
-    seg_length_done_ = seg_length_done_ + dL * cos(psiDes - psiPSO);
+    //seg_length_done_ = seg_length_done_ + dL * cos(psiDes - psiPSO);
+    seg_length_done_ = seg_length_done_ + fabs(dL * cos(psiDes - psiPSO));
   }
   double lengthSeg = path_.at(seg_number_).seg_length;
   if(seg_length_done_ > lengthSeg) {
@@ -347,7 +361,7 @@ void IdealStateGenerator::newPathCallback() {
   seg_number_ = 0;
   seg_length_done_ = 0.0;
   path_ = as_.acceptNewGoal()->segments; 
-  ROS_DEBUG("%s: New goal accepted", action_name_.c_str());
+  ROS_INFO("%s: New goal accepted", action_name_.c_str());
 }
 
 void IdealStateGenerator::preemptPathCallback() {
