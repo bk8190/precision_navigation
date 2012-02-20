@@ -13,6 +13,8 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <segment_lib/segment_lib.h>
+#include <boost/thread.hpp>
 
 class IdealStateGenerator {
   public:
@@ -33,6 +35,10 @@ class IdealStateGenerator {
 
     double seg_length_done_;
     uint32_t seg_number_;
+    uint32_t seg_index_;
+    
+    // Bad things happen if the state changes in the middle of a computation
+    boost::mutex compute_state_mutex_;
 
     //Current path to be working on
     std::vector<precision_navigation_msgs::PathSegment> path_;
@@ -69,6 +75,7 @@ IdealStateGenerator::IdealStateGenerator():
   compute_loop_timer_ = nh_.createTimer(ros::Duration(dt_), boost::bind(&IdealStateGenerator::computeStateLoop, this, _1));
 
   //Initialze private class variables
+  seg_index_ = 0;
   seg_number_ = 0;
   seg_length_done_ = 0.0;
 	
@@ -123,6 +130,8 @@ precision_navigation_msgs::DesiredState IdealStateGenerator::makeHaltState(bool 
 
 void IdealStateGenerator::computeStateLoop(const ros::TimerEvent& event) {
   ROS_DEBUG("Last callback took %f seconds", event.profile.last_duration.toSec());
+  
+  boost::mutex::scoped_lock l(compute_state_mutex_);
 
   precision_navigation_msgs::DesiredState new_desired_state;
   new_desired_state.header.frame_id = "odom";
@@ -193,17 +202,21 @@ bool IdealStateGenerator::checkCollisions(bool checkEntireVolume, const precisio
 
 bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& new_des_state)
 {
+	ROS_INFO_THROTTLE(1.0, "segnum %d (index %d)", seg_number_, seg_index_);
+
   double v = 0.0;
   bool end_of_path = false;
   double dL = desiredState_.des_speed * dt_;
-  if(seg_number_ >= path_.size()) {
+  if(seg_index_ >= path_.size()) {
     //Out of bounds
-    seg_number_ = path_.size()-1;
+    seg_index_ = path_.size()-1;
     end_of_path = true;
   }
 
+	seg_number_ = path_.at(seg_index_).seg_number;
+
   ros::Time current_transform = ros::Time::now();
-  if (path_.at(seg_number_).seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
+  if (path_.at(seg_index_).seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
     seg_length_done_ = seg_length_done_ + dL;
   } else {
     temp_pose_in_.header.frame_id = "base_link";
@@ -220,25 +233,26 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
     //seg_length_done_ = seg_length_done_ + dL * cos(psiDes - psiPSO);
     seg_length_done_ = seg_length_done_ + fabs(dL * cos(psiDes - psiPSO));
   }
-  double lengthSeg = path_.at(seg_number_).seg_length;
+  double lengthSeg = path_.at(seg_index_).seg_length;
   if(seg_length_done_ > lengthSeg) {
     seg_length_done_ = 0.0;
-    seg_number_++;
+    seg_index_++;
   }
 
-  if(seg_number_ >= path_.size()) {
+  if(seg_index_ >= path_.size()) {
     //Out of bounds
-    seg_number_ = path_.size()-1;
+    seg_index_ = path_.size()-1;
     end_of_path = true;
   }
+	seg_number_ = path_.at(seg_index_).seg_number;
 
-  lengthSeg = path_.at(seg_number_).seg_length;
+  lengthSeg = path_.at(seg_index_).seg_length;
   if(end_of_path) {
     //If we should stop because we ran out of path, we should command the state corresponding to s=1
     seg_length_done_ = lengthSeg;
   }
 
-  precision_navigation_msgs::PathSegment currentSeg = path_.at(seg_number_);
+  precision_navigation_msgs::PathSegment currentSeg = path_.at(seg_index_);
 
   double vNext;
   if (currentSeg.seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
@@ -246,8 +260,8 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
     v = currentSeg.max_speeds.angular.z;
   } else {
     v = currentSeg.max_speeds.linear.x;
-    if (seg_number_ < path_.size()-1) {
-      vNext = path_.at(seg_number_+1).max_speeds.linear.x;
+    if (seg_index_ < path_.size()-1) {
+      vNext = path_.at(seg_index_+1).max_speeds.linear.x;
     } 
     else {
       vNext = 0.0;	
@@ -287,12 +301,12 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
   tf_listener_.transformPose("odom", temp_pose_in_, temp_pose_out_);
 
   double tanAngle = tf::getYaw(temp_pose_out_.pose.orientation);
-  //std::cout << "seg_number_ " << seg_number_ << std::endl;
+  //std::cout << "seg_index_ " << seg_index_ << std::endl;
   //std::cout << "seg_length_done_ " << seg_length_done_ << std::endl;
   //std::cout << "tan angle " << tanAngle << std::endl;
   double radius, tangentAngStart, arcAngStart, dAng, arcAng, rho;
   bool should_halt = false;
-  //std::cout << seg_number_ << std::endl;
+  //std::cout << seg_index_ << std::endl;
   switch(currentSeg.seg_type){
     case precision_navigation_msgs::PathSegment::LINE:
       new_des_state.seg_type = currentSeg.seg_type;
@@ -358,10 +372,35 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
 }
 
 void IdealStateGenerator::newPathCallback() {
-  seg_number_ = 0;
-  seg_length_done_ = 0.0;
-  path_ = as_.acceptNewGoal()->segments; 
-  ROS_INFO("%s: New goal accepted", action_name_.c_str());
+  boost::mutex::scoped_lock l(compute_state_mutex_);
+	path_ = as_.acceptNewGoal()->segments;
+	
+	int old_index = seg_index_;
+	int old_segnum = seg_number_;
+	
+	// Search for the current segment number in the new path
+	precision_navigation_msgs::Path p;
+	p.segs = path_;
+	int new_index = segment_lib::segnumToIndex(p, seg_number_);
+	p.segs = path_;
+	
+	// If it was found, set our path index to the new value.
+	if( new_index != -1 ) {
+		ROS_INFO("%s: New goal accepted, continuation of old goal.", action_name_.c_str());
+	  seg_index_ = new_index;
+	}
+	// Otherwise, start at the beginning of the new path.
+	else {
+  	ROS_INFO("%s: New goal accepted, state cleared.", action_name_.c_str());
+		seg_index_       = 0;
+		seg_number_      = path_.at(seg_index_).seg_number;
+    seg_length_done_ = 0.0;
+	}
+	
+	ROS_INFO("Old index  %d, new %d/%d", old_index, seg_index_, path_.size());
+	ROS_INFO("Old segnum %d, new %d", old_segnum, seg_number_);
+	
+  
 }
 
 void IdealStateGenerator::preemptPathCallback() {
