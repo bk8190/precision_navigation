@@ -9,12 +9,12 @@
 
 <node name="precision_steering" pkg="precision_steering" type="steering_controller" output="screen" launch-prefix="$(arg launch_prefix)" >
 	<remap from="odometry" to="/odom" />
-	<param name="loop_rate" value="5.0" />
+	<param name="loop_rate" value="10.0" />
 	<param name="k_v" value="0.4" />
 	<param name="k_psi" value="1.0" />
 	<param name="convergence_rate" value="0.9" />
-	<param name="omega_cmd_sat" value="0.5" />
-	<param name="phase_space_slope" value="-1.0" />
+	<param name="omega_cmd_sat" value="0.8" />
+	<param name="phase_space_slope" value="-2.5" />
 	<param name="steering_algorithm" value="precision_steering_algorithms/PhaseSpaceSteering" />
 </node>
 

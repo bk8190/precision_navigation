@@ -202,7 +202,7 @@ bool IdealStateGenerator::checkCollisions(bool checkEntireVolume, const precisio
 
 bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& new_des_state)
 {
-	ROS_INFO_THROTTLE(1.0, "segnum %d (index %d)", seg_number_, seg_index_);
+	//ROS_INFO_THROTTLE(1.0, "segnum %d (index %d)", seg_number_, seg_index_);
 
   double v = 0.0;
   bool end_of_path = false;
