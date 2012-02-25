@@ -2,6 +2,7 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Twist.h>
 #include <tf/transform_datatypes.h>
+#include <tf/transform_listener.h>
 #include <cmath>
 #include <precision_navigation_msgs/DesiredState.h>
 #include <pluginlib/class_loader.h>
@@ -34,7 +35,6 @@ class PrecisionSteering {
 		ros::Subscriber odom_sub_;
 		ros::Subscriber desState_sub_;
 		ros::Publisher twist_pub_;
-
 };
 
 
@@ -56,7 +56,7 @@ PrecisionSteering::PrecisionSteering() : priv_nh_("~") {
 		ROS_ERROR("Failed to create the steering algorithm due to a plugin loading error. Error: %s", ex.what());
 		exit(0);
 	}
-
+	
 	firstCall=true;
 	//Subscribe to Odometry Topic
 	odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("odometry", 10, &PrecisionSteering::odomCallback, this); 
@@ -75,8 +75,14 @@ PrecisionSteering::PrecisionSteering() : priv_nh_("~") {
 	while(ros::ok()) {
 		if (!firstCall) // do this only when PSO is warmed up
 		{
-			steering_algo->computeVelocities(curDesState, current_odom, twist);
-
+			try{
+				tf::assertQuaternionValid(curDesState.des_pose.orientation);
+				steering_algo->computeVelocities(curDesState, current_odom, twist);
+			}
+			catch(tf::TransformException& ex){
+				ROS_WARN_THROTTLE(1,"[steering] invalid quaternion: %s", ex.what());
+			}
+			
 			//Publish twist message
 			twist_pub_.publish(twist);
 		}
@@ -93,6 +99,14 @@ PrecisionSteering::PrecisionSteering() : priv_nh_("~") {
 }
 
 void PrecisionSteering::odomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
+
+	try{
+		tf::assertQuaternionValid(odom->pose.pose.orientation);
+	}
+	catch(tf::TransformException& ex){
+		ROS_WARN_THROTTLE(1,"[steering] Odom callback: invalid quaternion %s", ex.what());
+	}
+				
 	current_odom = *odom;
 	if (firstCall)
 	{

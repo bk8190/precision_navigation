@@ -53,7 +53,7 @@ class IdealStateGenerator {
     ros::Subscriber path_sub_;
     tf::TransformListener tf_listener_;	
     geometry_msgs::PoseStamped temp_pose_in_, temp_pose_out_;
-    boost::shared_ptr<octocostmap::Costmap3D> costmap_;
+   // boost::shared_ptr<octocostmap::Costmap3D> costmap_;
     ros::Timer compute_loop_timer_;
     std::string action_name_;
     actionlib::SimpleActionServer<precision_navigation_msgs::ExecutePathAction> as_;
@@ -62,14 +62,15 @@ class IdealStateGenerator {
 
 IdealStateGenerator::IdealStateGenerator(): 
   action_name_("execute_path"), 
-  as_(nh_, action_name_, false)
+  as_(nh_, action_name_, false),
+  tf_listener_(ros::Duration(10))
 {
   //Setup the ideal state pub
   ideal_state_pub_= nh_.advertise<precision_navigation_msgs::DesiredState>("idealState",1);   
   ideal_pose_marker_pub_= nh_.advertise<geometry_msgs::PoseStamped>("ideal_pose",1);   
   nh_.param("loop_rate",loop_rate_,20.0); // default 20Hz
   dt_ = 1.0/loop_rate_;
-  costmap_ = boost::shared_ptr<octocostmap::Costmap3D>(new octocostmap::Costmap3D("octocostmap", tf_listener_));
+  //costmap_ = boost::shared_ptr<octocostmap::Costmap3D>(new octocostmap::Costmap3D("octocostmap", tf_listener_));
 
   //Setup the loop timer
   compute_loop_timer_ = nh_.createTimer(ros::Duration(dt_), boost::bind(&IdealStateGenerator::computeStateLoop, this, _1));
@@ -83,16 +84,20 @@ IdealStateGenerator::IdealStateGenerator():
 	bool found = false;
 	while( !found ){
 		try{
+			ROS_INFO("[ideal state generator] Getting transforms");
 			found = true;
-			tf_listener_.waitForTransform("odom", "map"      , ros::Time::now(), ros::Duration(10));
-			tf_listener_.waitForTransform("odom", "base_link", ros::Time::now(), ros::Duration(10));
+			tf::StampedTransform transform;
+			tf_listener_.waitForTransform("odom", "map"      , ros::Time::now(), ros::Duration(1));
+			tf_listener_.lookupTransform ("odom", "map"      , ros::Time::now(), transform);
+			tf_listener_.waitForTransform("odom", "base_link", ros::Time::now(), ros::Duration(1));
+			tf_listener_.lookupTransform ("odom", "base_link", ros::Time::now(), transform);
 		}
 		catch(tf::TransformException& ex){
-			ROS_WARN("Failed to get transforms");
+			ROS_WARN("[ideal state generator] Failed to get transforms %s", ex.what());
 			found = false;
 		}
 	}
-  
+  ROS_INFO("[ideal state generator] Got transforms");
   desiredState_ = makeHaltState(false);
 
   as_.registerGoalCallback(boost::bind(&IdealStateGenerator::newPathCallback, this));
@@ -295,10 +300,16 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
   temp_pose_in_.header.frame_id = currentSeg.header.frame_id;
   temp_pose_in_.pose.position = currentSeg.ref_point;
   temp_pose_in_.pose.orientation = currentSeg.init_tan_angle;
+  
+  /*
   current_transform = ros::Time::now();
   tf_listener_.getLatestCommonTime(temp_pose_in_.header.frame_id, "odom", current_transform, NULL);
   temp_pose_in_.header.stamp = current_transform;
-  tf_listener_.transformPose("odom", temp_pose_in_, temp_pose_out_);
+  tf_listener_.transformPose("odom", temp_pose_in_, temp_pose_out_); */
+  
+  // HAX
+  temp_pose_out_ = temp_pose_in_;
+  //temp_pose_out_.header.stamp = ros::Time::now();
 
   double tanAngle = tf::getYaw(temp_pose_out_.pose.orientation);
   //std::cout << "seg_index_ " << seg_index_ << std::endl;
@@ -410,6 +421,7 @@ void IdealStateGenerator::preemptPathCallback() {
 
 int main(int argc, char *argv[]) {
   ros::init(argc, argv, "ideal_state_generator");
+
   IdealStateGenerator idealState;
 
   ros::MultiThreadedSpinner spinner(3);
