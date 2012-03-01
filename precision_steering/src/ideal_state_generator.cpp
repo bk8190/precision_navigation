@@ -9,7 +9,7 @@
 #include <precision_navigation_msgs/Path.h>
 #include <actionlib/server/simple_action_server.h>
 #include <precision_navigation_msgs/ExecutePathAction.h>
-#include <octocostmap/costmap_3d.h>
+//#include <octocostmap/costmap_3d.h>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -65,6 +65,7 @@ IdealStateGenerator::IdealStateGenerator():
   as_(nh_, action_name_, false),
   tf_listener_(ros::Duration(10))
 {
+	ros::Duration(5.0).sleep();
   //Setup the ideal state pub
   ideal_state_pub_= nh_.advertise<precision_navigation_msgs::DesiredState>("idealState",1);   
   ideal_pose_marker_pub_= nh_.advertise<geometry_msgs::PoseStamped>("ideal_pose",1);   
@@ -81,7 +82,7 @@ IdealStateGenerator::IdealStateGenerator():
   seg_length_done_ = 0.0;
 	
 	// Wait to get transforms.
-	bool found = false;
+	/*bool found = false;
 	while( !found ){
 		try{
 			ROS_INFO("[ideal state generator] Getting transforms");
@@ -97,7 +98,7 @@ IdealStateGenerator::IdealStateGenerator():
 			found = false;
 		}
 	}
-  ROS_INFO("[ideal state generator] Got transforms");
+  ROS_INFO("[ideal state generator] Got transforms");*/
   desiredState_ = makeHaltState(false);
 
   as_.registerGoalCallback(boost::bind(&IdealStateGenerator::newPathCallback, this));
