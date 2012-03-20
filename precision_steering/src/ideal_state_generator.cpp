@@ -206,9 +206,23 @@ bool IdealStateGenerator::checkCollisions(bool checkEntireVolume, const precisio
   return false; // MEGA HAX
 }
 
+double clamp(double x, double low, double high)
+{
+	if( x<low  ) { return low;  }
+	if( x>high ) { return high; }
+	return x;
+}
+
+double clampMagnitude(double x, double mag)
+{
+	return clamp(x, -fabs(mag), fabs(mag));
+}
+
+double v_prev_;
+int prev_seg_type;
 bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& new_des_state)
 {
-	ROS_INFO("segnum %d (index %d)", seg_number_, seg_index_);
+	//ROS_INFO_THROTTLE(2,"segnum %d (index %d)", seg_number_, seg_index_);
 
   double v = 0.0;
   bool end_of_path = false;
@@ -217,6 +231,7 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
     //Out of bounds
     seg_index_ = path_.size()-1;
     end_of_path = true;
+    v_prev_ = 0;
   }
 
 	seg_number_ = path_.at(seg_index_).seg_number;
@@ -263,22 +278,29 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
 
 	// 1.0 or -1.0 depending on whether this seg is reversed
 	double direction = (currentSeg.max_speeds.linear.x > 0 ? 1.0 : -1.0);
-	if(direction < 0)
-		ROS_INFO("Reverse segment detected");
+	//if(direction < 0)
+	//	ROS_INFO("Reverse segment detected");
 
-  double vNext;
-  if (currentSeg.seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
-    vNext = 0.0;
-    v = currentSeg.max_speeds.angular.z;
-  } else {
-    v = currentSeg.max_speeds.linear.x;
-    if (seg_index_ < path_.size()-1) {
-      vNext = path_.at(seg_index_+1).max_speeds.linear.x;
-    } 
-    else {
-      vNext = 0.0;	
-    }
-  }
+	if( ((currentSeg.seg_type==precision_navigation_msgs::PathSegment::SPIN_IN_PLACE)||
+	     (prev_seg_type      ==precision_navigation_msgs::PathSegment::SPIN_IN_PLACE))
+	 && (currentSeg.seg_type != prev_seg_type) ){
+		v_prev_ = 0;
+	}
+	double vNext;
+	if (currentSeg.seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
+		vNext = 0.0;
+		v = v_prev_;//currentSeg.max_speeds.angular.z;
+	}
+	else
+	{
+		v = v_prev_;//currentSeg.max_speeds.linear.x;
+		if (seg_index_ < path_.size()-1) {
+			vNext = path_.at(seg_index_+1).max_speeds.linear.x;
+		} 
+		else {
+			vNext = 0.0;	
+		}
+	}
 
   double tDecel = fabs(v - vNext)/currentSeg.decel_limit;
   double vMean = (v + vNext)/2.0;
@@ -289,22 +311,24 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
     lengthRemaining = 0.0;
   }
   else if (lengthRemaining < distDecel) {
-    v = direction* sqrt(2*lengthRemaining*currentSeg.decel_limit + pow(vNext, 2));
+  	//ROS_INFO("Decel");
+    v = direction * sqrt(2*lengthRemaining*currentSeg.decel_limit + pow(vNext, 2));
   }
   else {
-    v = v + direction*currentSeg.accel_limit*dt_;
+  	// ROS_INFO("Accel lim = %.3f, dt=%.3f", currentSeg.accel_limit, dt_);
+  	//ROS_INFO("Accel from %.3f to %.3f", v, v + direction*currentSeg.accel_limit*dt_);
+    v += direction*currentSeg.accel_limit*dt_;
   }
 
   if (currentSeg.seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
     v = std::min(v, currentSeg.max_speeds.angular.z);
   } else {
-  	if( direction > 0 )
-			v = std::min(v, currentSeg.max_speeds.linear.x);
-		else
-			v = std::max(v, currentSeg.max_speeds.linear.x);
+  	v = clampMagnitude(v, currentSeg.max_speeds.linear.x);
   }
 
   //done figuring out our velocity commands
+	v_prev_ = v;
+	prev_seg_type = currentSeg.seg_type;
 
   //Convert into the odometry frame from whatever frame the path segments are in
   temp_pose_in_.header.frame_id = currentSeg.header.frame_id;
@@ -339,7 +363,7 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
       new_des_state.des_speed = v;
       new_des_state.des_lseg = seg_length_done_;
       
-      ROS_INFO("(x,y) = (%.3f,%.3f)   v=%.2f, vmax=%.2f", new_des_state.des_pose.position.x, new_des_state.des_pose.position.y, v, currentSeg.max_speeds.linear.x);
+      //ROS_INFO("(x,y) = (%.3f,%.3f)   v=%.2f, vmax=%.2f", new_des_state.des_pose.position.x, new_des_state.des_pose.position.y, v, currentSeg.max_speeds.linear.x);
       break;
     case precision_navigation_msgs::PathSegment::ARC:
       rho = currentSeg.curvature;
