@@ -208,7 +208,7 @@ bool IdealStateGenerator::checkCollisions(bool checkEntireVolume, const precisio
 
 bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& new_des_state)
 {
-	//ROS_INFO_THROTTLE(1.0, "segnum %d (index %d)", seg_number_, seg_index_);
+	ROS_INFO("segnum %d (index %d)", seg_number_, seg_index_);
 
   double v = 0.0;
   bool end_of_path = false;
@@ -260,6 +260,12 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
 
   precision_navigation_msgs::PathSegment currentSeg = path_.at(seg_index_);
 
+
+	// 1.0 or -1.0 depending on whether this seg is reversed
+	double direction = (currentSeg.max_speeds.linear.x > 0 ? 1.0 : -1.0);
+	if(direction < 0)
+		ROS_INFO("Reverse segment detected");
+
   double vNext;
   if (currentSeg.seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
     vNext = 0.0;
@@ -274,25 +280,28 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
     }
   }
 
-  double tDecel = (v - vNext)/currentSeg.decel_limit;
+  double tDecel = fabs(v - vNext)/currentSeg.decel_limit;
   double vMean = (v + vNext)/2.0;
-  double distDecel = vMean*tDecel;
+  double distDecel = fabs(vMean*tDecel);
 
   double lengthRemaining = currentSeg.seg_length - seg_length_done_;
   if(lengthRemaining < 0.0) {
     lengthRemaining = 0.0;
   }
   else if (lengthRemaining < distDecel) {
-    v = sqrt(2*lengthRemaining*currentSeg.decel_limit + pow(vNext, 2));
+    v = direction* sqrt(2*lengthRemaining*currentSeg.decel_limit + pow(vNext, 2));
   }
   else {
-    v = v + currentSeg.accel_limit*dt_;
+    v = v + direction*currentSeg.accel_limit*dt_;
   }
 
   if (currentSeg.seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
     v = std::min(v, currentSeg.max_speeds.angular.z);
   } else {
-    v = std::min(v, currentSeg.max_speeds.linear.x); //gonna fail for negative v commands along the path
+  	if( direction > 0 )
+			v = std::min(v, currentSeg.max_speeds.linear.x);
+		else
+			v = std::max(v, currentSeg.max_speeds.linear.x);
   }
 
   //done figuring out our velocity commands
@@ -314,8 +323,9 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
 
   double tanAngle = tf::getYaw(temp_pose_out_.pose.orientation);
   //std::cout << "seg_index_ " << seg_index_ << std::endl;
-  //std::cout << "seg_length_done_ " << seg_length_done_ << std::endl;
-  //std::cout << "tan angle " << tanAngle << std::endl;
+  //ROS_INFO("seg_length       = %.3f", path_.at(seg_index_).seg_length);
+  //ROS_INFO("seg_length_done_ = %.3f", seg_length_done_);
+  //ROS_INFO("tan angle        = %.2fpi", tanAngle/M_PI);
   double radius, tangentAngStart, arcAngStart, dAng, arcAng, rho;
   bool should_halt = false;
   //std::cout << seg_index_ << std::endl;
@@ -328,6 +338,8 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
       new_des_state.des_rho = currentSeg.curvature;
       new_des_state.des_speed = v;
       new_des_state.des_lseg = seg_length_done_;
+      
+      ROS_INFO("(x,y) = (%.3f,%.3f)   v=%.2f, vmax=%.2f", new_des_state.des_pose.position.x, new_des_state.des_pose.position.y, v, currentSeg.max_speeds.linear.x);
       break;
     case precision_navigation_msgs::PathSegment::ARC:
       rho = currentSeg.curvature;
@@ -416,7 +428,7 @@ void IdealStateGenerator::newPathCallback() {
 }
 
 void IdealStateGenerator::preemptPathCallback() {
-  ROS_INFO("%s: Preempted. Holding current position", action_name_.c_str());
+  ROS_INFO("%s: Action server preempted.", action_name_.c_str());
   as_.setPreempted();
 }
 
