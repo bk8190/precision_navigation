@@ -7,3 +7,13 @@ lib/
 *.swp
 *.pyo
 *.pyc
+
+*~
+precision_navigation_msgs/src
+precision_navigation_msgs/msg/ExecutePathAction.msg
+precision_navigation_msgs/msg/ExecutePathActionFeedback.msg
+precision_navigation_msgs/msg/ExecutePathActionGoal.msg
+precision_navigation_msgs/msg/ExecutePathActionResult.msg
+precision_navigation_msgs/msg/ExecutePathFeedback.msg
+precision_navigation_msgs/msg/ExecutePathGoal.msg
+precision_navigation_msgs/msg/ExecutePathResult.msg
