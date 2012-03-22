@@ -16,18 +16,23 @@
 #include <segment_lib/segment_lib.h>
 #include <boost/thread.hpp>
 
+// Shorthand
+using precision_navigation_msgs::PathSegment;
+namespace p_nav = precision_navigation_msgs;
+
 class IdealStateGenerator {
+
   public:
     IdealStateGenerator();
   private:
-    bool computeState(precision_navigation_msgs::DesiredState& new_des_state);
+    bool computeState(p_nav::DesiredState& new_des_state);
     //Handle new path
     void newPathCallback();
     //Cancel current path
     void preemptPathCallback();
-    precision_navigation_msgs::DesiredState makeHaltState(bool command_last_state);
+    p_nav::DesiredState makeHaltState(bool command_last_state);
     void computeStateLoop(const ros::TimerEvent& event);
-    bool checkCollisions(bool checkEntireVolume, const precision_navigation_msgs::DesiredState& des_state);
+    bool checkCollisions(bool checkEntireVolume, const p_nav::DesiredState& des_state);
 
     //Loop rate in Hz
     double loop_rate_;
@@ -41,10 +46,10 @@ class IdealStateGenerator {
     boost::mutex compute_state_mutex_;
 
     //Current path to be working on
-    std::vector<precision_navigation_msgs::PathSegment> path_;
+    std::vector<PathSegment> path_;
 
     //The last desired state we output	
-    precision_navigation_msgs::DesiredState desiredState_;
+    p_nav::DesiredState desiredState_;
 
     //ROS communcators
     ros::NodeHandle nh_;
@@ -56,8 +61,8 @@ class IdealStateGenerator {
    // boost::shared_ptr<octocostmap::Costmap3D> costmap_;
     ros::Timer compute_loop_timer_;
     std::string action_name_;
-    actionlib::SimpleActionServer<precision_navigation_msgs::ExecutePathAction> as_;
-    precision_navigation_msgs::ExecutePathFeedback feedback_;
+    actionlib::SimpleActionServer<p_nav::ExecutePathAction> as_;
+    p_nav::ExecutePathFeedback feedback_;
 };
 
 IdealStateGenerator::IdealStateGenerator(): 
@@ -67,7 +72,7 @@ IdealStateGenerator::IdealStateGenerator():
 {
 	ros::Duration(5.0).sleep();
   //Setup the ideal state pub
-  ideal_state_pub_= nh_.advertise<precision_navigation_msgs::DesiredState>("idealState",1);   
+  ideal_state_pub_= nh_.advertise<p_nav::DesiredState>("idealState",1);   
   ideal_pose_marker_pub_= nh_.advertise<geometry_msgs::PoseStamped>("ideal_pose",1);   
   nh_.param("loop_rate",loop_rate_,20.0); // default 20Hz
   dt_ = 1.0/loop_rate_;
@@ -107,8 +112,8 @@ IdealStateGenerator::IdealStateGenerator():
 }
 
 //We want to take the current location of the base and set that as the desired state with 0 velocity and rho. 
-precision_navigation_msgs::DesiredState IdealStateGenerator::makeHaltState(bool command_last_state) {
-  precision_navigation_msgs::DesiredState halt_state;
+p_nav::DesiredState IdealStateGenerator::makeHaltState(bool command_last_state) {
+  p_nav::DesiredState halt_state;
   //If we should command our current position, command_last_state will be false. Otherwise, command the last desired state
   if (command_last_state) {
     halt_state = desiredState_;
@@ -125,7 +130,7 @@ precision_navigation_msgs::DesiredState IdealStateGenerator::makeHaltState(bool 
     tf_listener_.transformPose("odom", temp_pose_in_, temp_pose_out_);
 
     halt_state.header.frame_id = "odom";
-    halt_state.seg_type = precision_navigation_msgs::PathSegment::SPIN_IN_PLACE;
+    halt_state.seg_type = PathSegment::SPIN_IN_PLACE;
     halt_state.header.stamp = ros::Time::now();
     halt_state.des_pose = temp_pose_out_.pose;
     halt_state.des_speed = 0.0;
@@ -139,7 +144,7 @@ void IdealStateGenerator::computeStateLoop(const ros::TimerEvent& event) {
   
   boost::mutex::scoped_lock l(compute_state_mutex_);
 
-  precision_navigation_msgs::DesiredState new_desired_state;
+  p_nav::DesiredState new_desired_state;
   new_desired_state.header.frame_id = "odom";
   new_desired_state.header.stamp = ros::Time::now();
   // if we actually have a path to execute, try to execute it, otherwise just output our current position as the goal
@@ -169,40 +174,7 @@ void IdealStateGenerator::computeStateLoop(const ros::TimerEvent& event) {
   ideal_pose_marker_pub_.publish(des_pose);
 }
 
-bool IdealStateGenerator::checkCollisions(bool checkEntireVolume, const precision_navigation_msgs::DesiredState& des_state) {
-  /*geometry_msgs::PoseStamped origin, origin_des_frame;
-  origin_des_frame.header = des_state.header;
-  /*origin_des_frame.header.frame_id = std::string("base_link");
-    origin_des_frame.point.x = 0.0;
-    origin_des_frame.point.y = 0.0;
-    origin_des_frame.point.z = 0.0; *//*
-  origin_des_frame.pose = des_state.des_pose;
-  try {
-    /*tf_listener_.transformPose("base_link", origin_des_frame, origin);
-      origin.pose.position.x += -0.711;
-      origin.pose.position.y += -0.3048;
-      origin.pose.position.z += 0.0; *//*
-    double width = 0.6096;
-    double length = 1.422;
-    double height = 2.00;
-    tf::Stamped<tf::Pose > tf_origin;
-    tf::poseStampedMsgToTF(origin_des_frame, tf_origin);
-    tf::Pose shift_amount(tf::createQuaternionFromYaw(0.0), tf::Vector3(-length/2., -width/2., 0.));
-    tf_origin.setData(tf_origin * shift_amount);
-    tf::poseStampedTFToMsg(tf_origin, origin);
-    double resolution = 0.05;
-    ROS_DEBUG_STREAM("origin: " << origin);
-    bool collision_detected = costmap_->checkRectangularPrismBase(origin, width, height, length, resolution, checkEntireVolume);
-    if (collision_detected) {
-      ROS_WARN("collision_detected");
-      return true;
-    } else {
-      return false;
-    }
-  } catch (tf::TransformException ex) {
-    ROS_ERROR("%s", ex.what());
-    return true;
-  }*/
+bool IdealStateGenerator::checkCollisions(bool checkEntireVolume, const p_nav::DesiredState& des_state) {
   return false; // MEGA HAX
 }
 
@@ -219,8 +191,8 @@ double clampMagnitude(double x, double mag)
 }
 
 double v_prev_;
-int prev_seg_type;
-bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& new_des_state)
+int    prev_seg_type;
+bool IdealStateGenerator::computeState(p_nav::DesiredState& new_des_state)
 {
 	//ROS_INFO_THROTTLE(2,"segnum %d (index %d)", seg_number_, seg_index_);
 
@@ -237,7 +209,7 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
 	seg_number_ = path_.at(seg_index_).seg_number;
 
   ros::Time current_transform = ros::Time::now();
-  if (path_.at(seg_index_).seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
+  if (path_.at(seg_index_).seg_type == PathSegment::SPIN_IN_PLACE) {
     seg_length_done_ = seg_length_done_ + dL;
   } else {
     temp_pose_in_.header.frame_id = "base_link";
@@ -273,28 +245,34 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
     seg_length_done_ = lengthSeg;
   }
 
-  precision_navigation_msgs::PathSegment currentSeg = path_.at(seg_index_);
+  PathSegment currentSeg = path_.at(seg_index_);
 
 
 	// 1.0 or -1.0 depending on whether this seg is reversed
-	double direction = (currentSeg.max_speeds.linear.x > 0 ? 1.0 : -1.0);
+	double direction = currentSeg.max_speeds.linear.x > 0 ? 1.0 : -1.0;
 	//if(direction < 0)
 	//	ROS_INFO("Reverse segment detected");
 
-	if( ((currentSeg.seg_type==precision_navigation_msgs::PathSegment::SPIN_IN_PLACE)||
-	     (prev_seg_type      ==precision_navigation_msgs::PathSegment::SPIN_IN_PLACE))
-	 && (currentSeg.seg_type != prev_seg_type) ){
-		v_prev_ = 0;
-	}
+
+	// Now to determine velocity.
 	double vNext;
-	if (currentSeg.seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
-		vNext = 0.0;
-		v = v_prev_;//currentSeg.max_speeds.angular.z;
+	v = v_prev_;
+	
+	// If we just jumped over to a discontinuous segment type, make sure our velocity is zero
+	if( ((currentSeg.seg_type==PathSegment::SPIN_IN_PLACE)||
+	     (prev_seg_type      ==PathSegment::SPIN_IN_PLACE))
+	 && (currentSeg.seg_type != prev_seg_type) ){
+		v = 0;
 	}
-	else
+	
+	// Determine whether we need to stop after this segment
+	if (currentSeg.seg_type == PathSegment::SPIN_IN_PLACE) {
+		vNext = 0.0;
+	}
+	else // line or arc
 	{
-		v = v_prev_;//currentSeg.max_speeds.linear.x;
-		if (seg_index_ < path_.size()-1) {
+		if (seg_index_ < path_.size()-1
+		 && path_.at(seg_index_+1).seg_type != PathSegment::SPIN_IN_PLACE) {
 			vNext = path_.at(seg_index_+1).max_speeds.linear.x;
 		} 
 		else {
@@ -302,8 +280,10 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
 		}
 	}
 
+	// Going from line to spin - it needs to decel
+
   double tDecel = fabs(v - vNext)/currentSeg.decel_limit;
-  double vMean = (v + vNext)/2.0;
+  double vMean = (fabs(v) + fabs(vNext))/2.0;
   double distDecel = fabs(vMean*tDecel);
 
   double lengthRemaining = currentSeg.seg_length - seg_length_done_;
@@ -311,17 +291,14 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
     lengthRemaining = 0.0;
   }
   else if (lengthRemaining < distDecel) {
-  	//ROS_INFO("Decel");
     v = direction * sqrt(2*lengthRemaining*currentSeg.decel_limit + pow(vNext, 2));
   }
   else {
-  	// ROS_INFO("Accel lim = %.3f, dt=%.3f", currentSeg.accel_limit, dt_);
-  	//ROS_INFO("Accel from %.3f to %.3f", v, v + direction*currentSeg.accel_limit*dt_);
     v += direction*currentSeg.accel_limit*dt_;
   }
 
-  if (currentSeg.seg_type == precision_navigation_msgs::PathSegment::SPIN_IN_PLACE) {
-    v = std::min(v, currentSeg.max_speeds.angular.z);
+  if (currentSeg.seg_type == PathSegment::SPIN_IN_PLACE) {
+    v = clampMagnitude(v, currentSeg.max_speeds.angular.z);
   } else {
   	v = clampMagnitude(v, currentSeg.max_speeds.linear.x);
   }
@@ -329,6 +306,7 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
   //done figuring out our velocity commands
 	v_prev_ = v;
 	prev_seg_type = currentSeg.seg_type;
+
 
   //Convert into the odometry frame from whatever frame the path segments are in
   temp_pose_in_.header.frame_id = currentSeg.header.frame_id;
@@ -354,7 +332,7 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
   bool should_halt = false;
   //std::cout << seg_index_ << std::endl;
   switch(currentSeg.seg_type){
-    case precision_navigation_msgs::PathSegment::LINE:
+    case PathSegment::LINE:
       new_des_state.seg_type = currentSeg.seg_type;
       new_des_state.des_pose.position.x = temp_pose_out_.pose.position.x + seg_length_done_*cos(tanAngle);
       new_des_state.des_pose.position.y = temp_pose_out_.pose.position.y + seg_length_done_*sin(tanAngle);
@@ -365,7 +343,7 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
       
       //ROS_INFO("(x,y) = (%.3f,%.3f)   v=%.2f, vmax=%.2f", new_des_state.des_pose.position.x, new_des_state.des_pose.position.y, v, currentSeg.max_speeds.linear.x);
       break;
-    case precision_navigation_msgs::PathSegment::ARC:
+    case PathSegment::ARC:
       rho = currentSeg.curvature;
       //std::cout << "rho " << rho << std::endl;
       radius = 1.0/fabs(rho);
@@ -388,7 +366,7 @@ bool IdealStateGenerator::computeState(precision_navigation_msgs::DesiredState& 
       new_des_state.des_speed = v;
       new_des_state.des_lseg = seg_length_done_;
       break;
-    case precision_navigation_msgs::PathSegment::SPIN_IN_PLACE:
+    case PathSegment::SPIN_IN_PLACE:
       rho = currentSeg.curvature;
       tangentAngStart = tanAngle;
       arcAngStart = 0.0;
@@ -427,7 +405,7 @@ void IdealStateGenerator::newPathCallback() {
 	int old_segnum = seg_number_;
 	
 	// Search for the current segment number in the new path
-	precision_navigation_msgs::Path p;
+	p_nav::Path p;
 	p.segs = path_;
 	int new_index = segment_lib::segnumToIndex(p, seg_number_);
 	p.segs = path_;
