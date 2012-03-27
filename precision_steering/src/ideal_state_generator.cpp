@@ -303,6 +303,10 @@ bool IdealStateGenerator::computeState(p_nav::DesiredState& new_des_state)
   	v = clampMagnitude(v, currentSeg.max_speeds.linear.x);
   }
 
+	if(end_of_path){
+		v = 0;
+	}
+	
   //done figuring out our velocity commands
 	v_prev_ = v;
 	prev_seg_type = currentSeg.seg_type;
