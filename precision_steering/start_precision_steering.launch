@@ -11,8 +11,8 @@
 		<remap from="odometry" to="/odom" />
 		
 		<param name="loop_rate"         value="20.0" />
-		<param name="k_v"               value="0.15"  />
-		<param name="k_psi"             value="1.5"  />
+		<param name="k_v"               value="0.08"  />
+		<param name="k_psi"             value="1.3"  />
 		<param name="omega_cmd_sat"     value="1.5"  />
 		<param name="phase_space_slope" value="-2.0" />
 	</node>
