@@ -265,8 +265,12 @@ bool IdealStateGenerator::computeState(p_nav::DesiredState& new_des_state)
 		v = 0;
 	}
 	
+	bool hasnextseg = seg_index_ < path_.size()-1;
+	
 	// Determine whether we need to stop after this segment
-	if (currentSeg.seg_type == PathSegment::SPIN_IN_PLACE) {
+	if ( !hasnextseg || 
+	    (currentSeg.seg_type == PathSegment::SPIN_IN_PLACE &&  path_.at(seg_index_+1).seg_type != PathSegment::SPIN_IN_PLACE) )
+	{
 		vNext = 0.0;
 	}
 	else // line or arc
