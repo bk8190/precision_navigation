@@ -14,7 +14,7 @@
 		<param name="k_v"               value="0.3"  />
 		<param name="k_psi"             value="1.5"  />
 		<param name="omega_cmd_sat"     value="2.0"  />
-		<param name="phase_space_slope" value="-1.0" />
+		<param name="phase_space_slope" value="-0.8" />
 	</node>
 
 	<!-- Defaults -->
@@ -34,7 +34,7 @@
 	</node>
 
 	<node name="rxplot" pkg="rxtools" type="rxplot" output="log"
-		args="--period=10 --refresh_rate=5 /idealState/des_speed /idealState/des_lseg /idealState/seg_type" />
+		args="--period=10 --refresh-rate=5 /idealState/des_speed /idealState/des_lseg /idealState/seg_type" />
 
 	<!--node name="octocostmap" pkg="octocostmap" type="octocostmap">
 		<remap from="scan" to="base_scan" />
