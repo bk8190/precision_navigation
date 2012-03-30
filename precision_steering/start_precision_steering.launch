@@ -10,7 +10,7 @@
 		<param name="steering_algorithm" value="precision_steering_algorithms/PhaseSpaceSteering" />
 		<remap from="odometry" to="/odom" />
 		
-		<param name="loop_rate"         value="20.0" />
+		<param name="loop_rate"         value="25.0" />
 		<param name="k_v"               value="0.08"  />
 		<param name="k_psi"             value="2.2"  />
 		<param name="omega_cmd_sat"     value="1.5"  />
