@@ -70,7 +70,7 @@ IdealStateGenerator::IdealStateGenerator():
   as_(nh_, action_name_, false),
   tf_listener_(ros::Duration(10))
 {
-	ros::Duration(5.0).sleep();
+	ros::Duration(3.0).sleep();
   //Setup the ideal state pub
   ideal_state_pub_= nh_.advertise<p_nav::DesiredState>("idealState",1);   
   ideal_pose_marker_pub_= nh_.advertise<geometry_msgs::PoseStamped>("ideal_pose",1);   

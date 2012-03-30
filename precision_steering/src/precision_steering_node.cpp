@@ -43,6 +43,7 @@ PrecisionSteering::PrecisionSteering() : priv_nh_("~") {
 	priv_nh_.param("loop_rate", loop_rate, 20.0);
 	std::string steering_algo_name;
 	priv_nh_.param("steering_algorithm", steering_algo_name, std::string("precision_steering_algorithms/SecondOrderSteering"));
+	ROS_INFO_STREAM("Precision steering node started with loop rate of "<<loop_rate<<"Hz");
 
 	pluginlib::ClassLoader<precision_steering::SteeringBase> steering_loader("precision_steering", "precision_steering::SteeringBase");
 	precision_steering::SteeringBase *steering_algo = NULL;
