@@ -79,13 +79,13 @@ PrecisionSteering::PrecisionSteering() : priv_nh_("~") {
 			try{
 				tf::assertQuaternionValid(curDesState.des_pose.orientation);
 				steering_algo->computeVelocities(curDesState, current_odom, twist);
+			
+				//Publish twist message
+				twist_pub_.publish(twist);
 			}
 			catch(tf::TransformException& ex){
 				ROS_WARN_THROTTLE(1,"[steering] invalid quaternion: %s", ex.what());
 			}
-			
-			//Publish twist message
-			twist_pub_.publish(twist);
 		}
 		//Make sure this node's ROS stuff gets to run if we are hogging CPU
 		ros::spinOnce();
