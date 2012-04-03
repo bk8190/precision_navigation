@@ -94,7 +94,7 @@ PrecisionSteering::PrecisionSteering() : priv_nh_("~") {
 		rate.sleep();
 		ROS_DEBUG("Cycle time was %.4f seconds", rate.cycleTime().toSec());
 		if(rate.cycleTime() > ros::Duration(1 / loop_rate)) {
-			ROS_WARN("Steering loop missed its desired rate of %.4fHz... the loop actually took %.4f seconds", loop_rate, rate.cycleTime().toSec());
+			ROS_WARN_THROTTLE(2,"Steering loop missed its desired rate of %.4fHz... the loop actually took %.4f seconds", loop_rate, rate.cycleTime().toSec());
 		}
 	}
 }

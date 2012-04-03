@@ -151,14 +151,14 @@ void IdealStateGenerator::computeStateLoop(const ros::TimerEvent& event) {
   if (as_.isActive()) {
     ROS_DEBUG("We have an active goal. Compute state");
     if (computeState(new_desired_state)) {
-      ROS_INFO("State computation failed. Command current position");
+      ROS_DEBUG("State computation failed. Command current position");
       new_desired_state = makeHaltState(false);
     }
     if(!checkCollisions(false, new_desired_state)) {
       ROS_DEBUG("No collision detected. Passing on current desired state");
       desiredState_ = new_desired_state;
     } else {
-      ROS_INFO("Collision detected. Commanding current position");
+      ROS_DEBUG("Collision detected. Commanding current position");
       desiredState_ = makeHaltState(false); 
     }
   } else {
@@ -420,7 +420,7 @@ void IdealStateGenerator::newPathCallback() {
 	
 	// If it was found, set our path index to the new value.
 	if( new_index != -1 ) {
-		ROS_INFO("%s: New goal accepted, continuation of old goal.", action_name_.c_str());
+		ROS_DEBUG("%s: New goal accepted, continuation of old goal.", action_name_.c_str());
 	  seg_index_ = new_index;
 	}
 	// Otherwise, start at the beginning of the new path.
@@ -431,14 +431,14 @@ void IdealStateGenerator::newPathCallback() {
     seg_length_done_ = 0.0;
 	}
 	
-	ROS_INFO("Old index  %d, new %d/%d", old_index, seg_index_, path_.size());
-	ROS_INFO("Old segnum %d, new %d", old_segnum, seg_number_);
+	ROS_DEBUG("Old index  %d, new %d/%d", old_index, seg_index_, path_.size());
+	ROS_DEBUG("Old segnum %d, new %d", old_segnum, seg_number_);
 	
   
 }
 
 void IdealStateGenerator::preemptPathCallback() {
-  ROS_INFO("%s: Action server preempted.", action_name_.c_str());
+  ROS_DEBUG("%s: Action server preempted.", action_name_.c_str());
   as_.setPreempted();
 }
 
