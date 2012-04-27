@@ -13,7 +13,7 @@
 		<param name="loop_rate"         value="25.0" />
 		<param name="k_v"               value="0.08"  />
 		<param name="k_psi"             value="1.8"  />
-		<param name="omega_cmd_sat"     value="1.0"  />
+		<param name="omega_cmd_sat"     value="0.8"  />
 		<param name="phase_space_slope" value="-1.0" />
 	</node>
 
