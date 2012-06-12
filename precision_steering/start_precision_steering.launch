@@ -33,8 +33,8 @@
 		<param name="loop_rate" value="10.0" />
 	</node>
 
-	<node name="rxplot" pkg="rxtools" type="rxplot" output="log"
-		args="--period=10 /idealState/des_speed /idealState/des_lseg /idealState/seg_type" />
+	<!--node name="rxplot" pkg="rxtools" type="rxplot" output="log"
+		args="--period=10 /idealState/des_speed /idealState/des_lseg /idealState/seg_type" /-->
 
 	<!--node name="octocostmap" pkg="octocostmap" type="octocostmap">
 		<remap from="scan" to="base_scan" />
