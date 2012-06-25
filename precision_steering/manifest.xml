@@ -13,6 +13,7 @@
   <depend package="std_msgs"/>
   <depend package="geometry_msgs"/>
   <depend package="precision_navigation_msgs"/>
+  <depend package="precision_steering_algorithms"/>
   <depend package="roscpp"/>
   <depend package="pluginlib" />
   <depend package="actionlib" />
