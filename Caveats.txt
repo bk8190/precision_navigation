@@ -1,0 +1,3 @@
+Due to a weird dependency, this stack must be built as "rosmake precision_navigation".
+If you just try to do "rosmake precision_steering" then "precision_steering_algorithms" will not build, resulting, in a pluginlib error
+
