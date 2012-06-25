@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <cmath>
 #include <pluginlib/class_list_macros.h>
-#include <precision_steering_algorithms/steering_base.h>
+#include <precision_steering/steering_base.h>
 #include <precision_steering_algorithms/phase_space_steering.h>
 #include <precision_navigation_msgs/PathSegment.h>
 #include <tf/tf.h>

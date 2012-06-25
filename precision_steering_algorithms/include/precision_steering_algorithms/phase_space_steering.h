@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <precision_steering_algorithms/steering_base.h>
+#include <precision_steering/steering_base.h>
 
 #ifndef PRECISION_STEERING_PHASE_SPACE_STEERING_H_
 #define PRECISION_STEERING_PHASE_SPACE_STEERING_H_
